@@ -864,7 +864,6 @@ function openFile(event) {
 
       welcomeScreen.style.display = 'none';
 
-      let loadedCount = 0;
       const totalPages = data.pagesData ? data.pagesData.length : 0;
 
       if (totalPages === 0) {
@@ -872,29 +871,32 @@ function openFile(event) {
       } else {
         data.pagesData.forEach((dataUrl, idx) => {
           const page = createNewPage();
-          page.hasBeenDrawnOn = true;
+          const pageStrokes = data.pagesStrokes ? data.pagesStrokes[idx] : null;
 
-          if (data.pagesStrokes && data.pagesStrokes[idx]) {
-            page.strokes = data.pagesStrokes[idx];
+          if (pageStrokes) {
+            page.strokes = pageStrokes;
+            page.hasBeenDrawnOn = pageStrokes.length > 0;
             page.strokes.forEach(s => {
               if (!s.bbox) s.bbox = computeStrokeBBox(s);
             });
             page.redrawStrokes();
             page.render();
-            loadedCount++;
-            if (loadedCount === totalPages) createNewPage();
           } else {
+            page.hasBeenDrawnOn = true;
             const img = new Image();
             img.onload = () => {
               page.backgroundImage = img;
               page.redrawStrokes();
               page.render();
-              loadedCount++;
-              if (loadedCount === totalPages) createNewPage();
             };
             img.src = dataUrl;
           }
         });
+
+        const lastPage = pages[pages.length - 1];
+        if (lastPage && lastPage.hasBeenDrawnOn) {
+          createNewPage();
+        }
       }
 
       setTool('pen', penBtn);
