@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Minimal Note App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Startup / Welcome Screen Modal -->
+  <div id="welcomeScreen" class="welcome-overlay">
+    <div class="welcome-card">
+      <h1 class="welcome-title">Minimal Notes</h1>
+      
+      <!-- Create New Note Section -->
+      <div class="welcome-section">
+        <h2>Create New Note</h2>
+        
+        <label class="input-group">
+          <span>Note Title</span>
+          <input type="text" id="noteTitleInput" value="Untitled Note" placeholder="Enter title...">
+        </label>
+
+        <label class="input-group">
+          <span>Page Size</span>
+          <select id="initPageSizeSelect">
+            <option value="full-width">Full Width</option>
+            <option value="a4" selected>A4</option>
+            <option value="a3">A3</option>
+          </select>
+        </label>
+
+        <label class="input-group">
+          <span>Background Style</span>
+          <select id="initBgSelect">
+            <option value="white">White Background</option>
+            <option value="lines-small">Small Spaced Lines</option>
+            <option value="lines-big">Big Spaced Lines</option>
+            <option value="grid-1cm" selected>1cm Grid</option>
+            <option value="grid-big">Bigger Grid</option>
+            <option value="dotted">Dotted</option>
+          </select>
+        </label>
+
+        <button id="createNoteBtn" class="btn-primary">Create Note</button>
+      </div>
+
+      <hr class="welcome-divider">
+
+      <!-- Open Saved Note Section -->
+      <div class="welcome-section">
+        <h2>Open Saved Note</h2>
+        <input type="file" id="openFileInput" accept=".note,.json" style="display: none;">
+        <button id="openNoteBtn" class="btn-secondary">Open File from Computer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimal Toolbar -->
+  <header class="toolbar">
+    <div class="brand" id="activeNoteTitle">Notes</div>
+
+    <!-- Tool Selectors -->
+    <div class="tools">
+      <button id="penBtn" class="tool-btn active">Pen</button>
+      <button id="markerBtn" class="tool-btn">Marker</button>
+      <button id="eraserBtn" class="tool-btn">Eraser</button>
+    </div>
+
+    <!-- Controls: Color, Palette, Tip Width & Live Background Switcher -->
+    <div class="controls">
+      <label class="control-group">
+        <span>Color</span>
+        <input type="color" id="colorPicker" value="#222222">
+      </label>
+
+      <div class="preset-palette" id="presetPalette"></div>
+      
+      <label class="control-group">
+        <span>Tip Size</span>
+        <input type="range" id="widthSlider" min="1" max="38" value="2.5">
+      </label>
+
+      <!-- Dynamic Live Background Selector -->
+      <label class="control-group">
+        <span>Background</span>
+        <select id="bgSelectToolbar" class="toolbar-select">
+          <option value="white">White</option>
+          <option value="lines-small">Small Lines</option>
+          <option value="lines-big">Big Lines</option>
+          <option value="grid-1cm" selected>1cm Grid</option>
+          <option value="grid-big">Big Grid</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Actions: Save & Return Home -->
+    <div class="actions">
+      <button id="saveBtn" class="action-btn">Save File</button>
+      <button id="homeBtn" class="action-btn">Home</button>
+    </div>
+  </header>
+
+  <!-- Multi-page Workspace Container -->
+  <main class="workspace" id="workspace"></main>
+
+  <script src="script.js"></script>
+</body>
+</html>
