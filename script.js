@@ -1,7 +1,6 @@
 const workspace = document.getElementById('workspace');
 const zoomWrapper = document.getElementById('zoomWrapper');
 
-// Elements
 const welcomeScreen = document.getElementById('welcomeScreen');
 const noteTitleInput = document.getElementById('noteTitleInput');
 const initPageSizeSelect = document.getElementById('initPageSizeSelect');
@@ -13,11 +12,9 @@ const activeNoteTitle = document.getElementById('activeNoteTitle');
 const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 
-// Undo / Redo UI Buttons
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 
-// Mode & Zoom Controls
 const modeSelect = document.getElementById('modeSelect');
 const mouseControls = document.getElementById('mouseControls');
 const zoomInBtn = document.getElementById('zoomInBtn');
@@ -25,7 +22,6 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 const resetZoomBtn = document.getElementById('resetZoomBtn');
 const zoomValText = document.getElementById('zoomVal');
 
-// Toolbar Controls
 const penBtn = document.getElementById('penBtn');
 const markerBtn = document.getElementById('markerBtn');
 const strokeEraserBtn = document.getElementById('strokeEraserBtn');
@@ -45,7 +41,6 @@ let pages = [];
 let currentMode = 'pen';
 let zoomLevel = 1.0;
 
-// Gesture & Shape Tracking
 let currentStroke = [];
 let holdTimer = null;
 let isShapeSnapped = false;
@@ -611,11 +606,8 @@ function executeScribbleErase(page) {
 function startDrawing(e, page) {
   if (e.button !== 0) return;
 
+  // Allow native vertical scrolling on touch input while in Pen mode
   if (currentMode === 'pen' && e.pointerType !== 'pen') {
-    return;
-  }
-
-  if (currentMode === 'mouse' && e.pointerType === 'touch') {
     return;
   }
 
@@ -837,7 +829,6 @@ function stopDrawing(page) {
   activePage = null;
 }
 
-// Session & File Management
 function startSession(title, size, bg) {
   noteConfig.title = title || 'Untitled Note';
   noteConfig.size = size;
@@ -965,7 +956,6 @@ function openFile(event) {
   openFileInput.value = '';
 }
 
-// Global Keyboard Listeners
 window.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
@@ -983,7 +973,6 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Event Listeners
 if (undoBtn) undoBtn.addEventListener('click', () => undo());
 if (redoBtn) redoBtn.addEventListener('click', () => redo());
 
