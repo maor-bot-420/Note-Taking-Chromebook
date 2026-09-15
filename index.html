@@ -2,44 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Canvas Note App</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="mode-pen">
 
-  <!-- Top Navigation & Control Header -->
   <header class="app-header">
     <div class="header-left">
       <button id="homeBtn" class="btn">Home</button>
       <span id="activeNoteTitle" class="note-title">Untitled Note</span>
     </div>
-
     <div class="header-center">
-      <div class="mode-control">
-        <label for="modeSelect">Mode:</label>
-        <select id="modeSelect">
-          <option value="pen">Pen Mode</option>
-          <option value="mouse">Mouse / Touch Mode</option>
-        </select>
-      </div>
-
-      <div id="mouseControls" class="mouse-controls hidden">
+      <button id="undoBtn" class="btn">Undo</button>
+      <button id="redoBtn" class="btn">Redo</button>
+      <select id="modeSelect" class="btn">
+        <option value="pen">Pen Mode (Stylus Draw / Touch Scroll)</option>
+        <option value="mouse">Touch/Mouse Mode (Touch Draw)</option>
+      </select>
+    </div>
+    <div class="header-right">
+      <div id="mouseControls" class="hidden">
         <button id="zoomOutBtn" class="btn">-</button>
         <span id="zoomVal">100%</span>
         <button id="zoomInBtn" class="btn">+</button>
         <button id="resetZoomBtn" class="btn">Reset</button>
       </div>
-    </div>
-
-    <div class="header-right">
-      <button id="undoBtn" class="btn" title="Undo (Ctrl+Z)">Undo</button>
-      <button id="redoBtn" class="btn" title="Redo (Ctrl+Shift+Z)">Redo</button>
       <button id="saveBtn" class="btn primary">Save</button>
     </div>
   </header>
 
-  <!-- Drawing Toolbar -->
   <div class="toolbar">
     <div class="tool-group">
       <button id="penBtn" class="tool-btn active">Pen</button>
@@ -47,20 +39,16 @@
       <button id="strokeEraserBtn" class="tool-btn">Stroke Eraser</button>
       <button id="eraserBtn" class="tool-btn">Eraser</button>
     </div>
-
-    <div class="tool-group">
-      <label for="widthSlider">Size:</label>
-      <input type="range" id="widthSlider" min="1" max="50" value="2.5">
-    </div>
-
     <div class="tool-group">
       <input type="color" id="colorPicker" value="#222222">
       <div id="presetPalette" class="preset-palette"></div>
     </div>
-
     <div class="tool-group">
-      <label for="bgSelectToolbar">Background:</label>
-      <select id="bgSelectToolbar">
+      <label for="widthSlider">Size:</label>
+      <input type="range" id="widthSlider" min="1" max="50" value="2.5">
+    </div>
+    <div class="tool-group">
+      <select id="bgSelectToolbar" class="btn">
         <option value="grid-1cm">Grid (1cm)</option>
         <option value="lined">Lined</option>
         <option value="blank">Blank</option>
@@ -68,26 +56,21 @@
     </div>
   </div>
 
-  <!-- Workspace & Canvas Container -->
-  <main id="workspace" class="workspace">
+  <div id="workspace" class="workspace">
     <div id="zoomWrapper" class="zoom-wrapper"></div>
-  </main>
+  </div>
 
-  <!-- App Footer -->
   <footer class="app-footer">
-    <small>&copy; 2026 Maor Yevtushenko. All rights reserved.</small>
+    <span>Canvas Notes</span>
   </footer>
 
-  <!-- Welcome / File Initializer Modal -->
   <div id="welcomeScreen" class="welcome-screen">
     <div class="modal-card">
-      <h2>Canvas Notes</h2>
-      
+      <h2>Create Note</h2>
       <div class="form-group">
-        <label for="noteTitleInput">Note Title</label>
-        <input type="text" id="noteTitleInput" placeholder="Untitled Note">
+        <label for="noteTitleInput">Title</label>
+        <input type="text" id="noteTitleInput" value="My Note">
       </div>
-
       <div class="form-group">
         <label for="initPageSizeSelect">Page Size</label>
         <select id="initPageSizeSelect">
@@ -95,24 +78,18 @@
           <option value="letter">Letter</option>
         </select>
       </div>
-
       <div class="form-group">
-        <label for="initBgSelect">Background Grid</label>
+        <label for="initBgSelect">Background</label>
         <select id="initBgSelect">
           <option value="grid-1cm">Grid (1cm)</option>
           <option value="lined">Lined</option>
           <option value="blank">Blank</option>
         </select>
       </div>
-
       <div class="modal-actions">
-        <button id="createNoteBtn" class="btn primary">Create New Note</button>
-        <button id="openNoteBtn" class="btn">Open Existing Note</button>
-        <input type="file" id="openFileInput" accept=".note,.json" style="display: none;">
-      </div>
-
-      <div class="modal-footer">
-        <small>Created by Maor Yevtushenko &copy; 2026</small>
+        <button id="createNoteBtn" class="btn primary">Create</button>
+        <button id="openNoteBtn" class="btn">Open</button>
+        <input type="file" id="openFileInput" accept=".note,.json" class="hidden">
       </div>
     </div>
   </div>
