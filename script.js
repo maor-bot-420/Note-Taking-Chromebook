@@ -226,8 +226,8 @@ class Page {
   }
 
   attachEvents() {
-    this.canvas.addEventListener('pointerdown', (e) => startDrawing(e, this));
-    this.canvas.addEventListener('pointermove', (e) => draw(e, this));
+    this.canvas.addEventListener('pointerdown', (e) => startDrawing(e, this), { passive: false });
+    this.canvas.addEventListener('pointermove', (e) => draw(e, this), { passive: false });
     this.canvas.addEventListener('pointerup', () => stopDrawing(this));
     this.canvas.addEventListener('pointercancel', () => stopDrawing(this));
     this.canvas.addEventListener('pointerleave', () => stopDrawing(this));
@@ -397,10 +397,9 @@ function startDrawing(e, page) {
   if (e.button !== 0) return;
 
   if (currentMode === 'pen' && e.pointerType !== 'pen') {
-    return; // Allows fingers to pass through for panning/zooming
+    return;
   }
 
-  // Prevents Chrome from initiating page scrolling on stylus touch
   e.preventDefault();
 
   isDrawing = true;
@@ -479,7 +478,6 @@ function resetHoldTimer(page) {
 function draw(e, page) {
   if (!isDrawing || activePage !== page) return;
 
-  // Keep preventing default browser scroll during active drawing
   e.preventDefault();
 
   const pos = getPos(e, page);
@@ -654,7 +652,7 @@ async function saveFile() {
       await writable.close();
       return;
     } catch (err) {
-      if (err.name === 'AbortError') return; // User canceled save dialog
+      if (err.name === 'AbortError') return;
       console.error('File save failed:', err);
     }
   }
@@ -720,6 +718,13 @@ function openFile(event) {
   reader.readAsText(file);
   openFileInput.value = '';
 }
+
+// Global touchmove override to prevent window panning during active drawing
+document.addEventListener('touchmove', (e) => {
+  if (isDrawing) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // Event Listeners
 modeSelect.addEventListener('change', updateModeUI);
