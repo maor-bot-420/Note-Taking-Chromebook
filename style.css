@@ -129,10 +129,13 @@ html, body {
   overflow: auto;
   background: #e9ecef;
   position: relative;
-  display: block;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   padding: 32px 16px;
   box-sizing: border-box;
   width: 100%;
+  min-width: 700px;
 }
 
 .zoom-wrapper {
@@ -142,7 +145,8 @@ html, body {
   gap: 24px;
   align-items: center;
   margin: 0 auto;
-  width: fit-content;
+  width: 100%;
+  max-width: 816px;
 }
 
 .page-container {
@@ -151,16 +155,21 @@ html, body {
   position: relative;
   border-radius: 4px;
   flex-shrink: 0;
+  margin: 0 auto;
 }
 
 .page-container.a4 {
-  width: 794px;
-  height: 1123px;
+  width: 100%;
+  max-width: 794px;
+  aspect-ratio: 1 / 1.4142;
+  height: auto;
 }
 
 .page-container.letter {
-  width: 816px;
-  height: 1056px;
+  width: 100%;
+  max-width: 816px;
+  aspect-ratio: 1 / 1.2941;
+  height: auto;
 }
 
 /* Page Background Patterns */
@@ -183,6 +192,8 @@ canvas {
   position: absolute;
   top: 0;
   left: 0;
+  width: 100% !important;
+  height: 100% !important;
   touch-action: none;
 }
 
