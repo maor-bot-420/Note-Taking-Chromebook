@@ -13,7 +13,7 @@ const activeNoteTitle = document.getElementById('activeNoteTitle');
 const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 
-// Undo / Redo UI Buttons (Optional)
+// Undo / Redo UI Buttons
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 
@@ -115,11 +115,24 @@ function cloneStrokes(strokes) {
   return JSON.parse(JSON.stringify(strokes));
 }
 
-function getActiveOrLastPage() {
-  return activePage || pages[pages.length - 1] || null;
+function getUndoPage() {
+  if (activePage && activePage.undoStack.length > 0) return activePage;
+  for (let i = pages.length - 1; i >= 0; i--) {
+    if (pages[i].undoStack.length > 0) return pages[i];
+  }
+  return pages[pages.length - 1] || null;
 }
 
-function undo(page = getActiveOrLastPage()) {
+function getRedoPage() {
+  if (activePage && activePage.redoStack.length > 0) return activePage;
+  for (let i = pages.length - 1; i >= 0; i--) {
+    if (pages[i].redoStack.length > 0) return pages[i];
+  }
+  return pages[pages.length - 1] || null;
+}
+
+function undo() {
+  const page = getUndoPage();
   if (!page || page.undoStack.length === 0) return;
   page.redoStack.push(cloneStrokes(page.strokes));
   page.strokes = page.undoStack.pop();
@@ -127,7 +140,8 @@ function undo(page = getActiveOrLastPage()) {
   page.render();
 }
 
-function redo(page = getActiveOrLastPage()) {
+function redo() {
+  const page = getRedoPage();
   if (!page || page.redoStack.length === 0) return;
   page.undoStack.push(cloneStrokes(page.strokes));
   page.strokes = page.redoStack.pop();
@@ -970,10 +984,23 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// Robust 2-finger double tap for undo
 window.addEventListener('touchstart', (e) => {
   if (e.touches.length === 2) {
+    // Abort drawing started by the first finger landing earlier
+    if (isDrawing && activePage) {
+      isDrawing = false;
+      clearTimeout(holdTimer);
+      if (activePage.preActionStrokes) {
+        activePage.strokes = cloneStrokes(activePage.preActionStrokes);
+        activePage.redrawStrokes();
+        activePage.render();
+      }
+      activePage = null;
+    }
+
     const now = Date.now();
-    if (now - lastTwoFingerTapTime < 350) {
+    if (now - lastTwoFingerTapTime < 450) {
       e.preventDefault();
       undo();
       lastTwoFingerTapTime = 0;
