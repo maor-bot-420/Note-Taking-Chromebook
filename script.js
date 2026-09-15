@@ -362,8 +362,8 @@ class Page {
   }
 
   attachEvents() {
-    this.canvas.addEventListener('pointerdown', (e) => startDrawing(e, this), { passive: false });
-    this.canvas.addEventListener('pointermove', (e) => draw(e, this), { passive: false });
+    this.canvas.addEventListener('pointerdown', (e) => startDrawing(e, this));
+    this.canvas.addEventListener('pointermove', (e) => draw(e, this));
     this.canvas.addEventListener('pointerup', () => stopDrawing(this));
     this.canvas.addEventListener('pointercancel', () => stopDrawing(this));
     this.canvas.addEventListener('pointerleave', () => stopDrawing(this));
@@ -615,7 +615,9 @@ function startDrawing(e, page) {
     return;
   }
 
-  e.preventDefault();
+  if (currentMode === 'mouse' && e.pointerType === 'touch') {
+    return;
+  }
 
   isDrawing = true;
   activePage = page;
@@ -706,8 +708,6 @@ function resetHoldTimer(page) {
 
 function draw(e, page) {
   if (!isDrawing || activePage !== page) return;
-
-  e.preventDefault();
 
   const pos = getPos(e, page);
   const distFromLast = Math.hypot(pos.x - lastX, pos.y - lastY);
@@ -982,13 +982,6 @@ window.addEventListener('keydown', (e) => {
     redo();
   }
 });
-
-// Touch Scroll Fix (Allow normal multi-touch scrolling without interference)
-document.addEventListener('touchmove', (e) => {
-  if (isDrawing) {
-    e.preventDefault();
-  }
-}, { passive: false });
 
 // Event Listeners
 if (undoBtn) undoBtn.addEventListener('click', () => undo());
