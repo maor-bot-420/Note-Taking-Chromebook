@@ -357,11 +357,27 @@ class Page {
   }
 
   attachEvents() {
-    this.canvas.addEventListener('pointerdown', (e) => startDrawing(e, this));
-    this.canvas.addEventListener('pointermove', (e) => draw(e, this));
-    this.canvas.addEventListener('pointerup', () => stopDrawing(this));
-    this.canvas.addEventListener('pointercancel', () => stopDrawing(this));
-    this.canvas.addEventListener('pointerleave', () => stopDrawing(this));
+    const handleStart = (e) => startDrawing(e, this);
+    const handleMove = (e) => draw(e, this);
+    const handleEnd = (e) => stopDrawing(this, e);
+
+    this.canvas.addEventListener('pointerdown', handleStart, { passive: false });
+    this.canvas.addEventListener('pointermove', handleMove, { passive: false });
+    this.canvas.addEventListener('pointerup', handleEnd, { passive: false });
+    this.canvas.addEventListener('pointercancel', handleEnd, { passive: false });
+    this.canvas.addEventListener('pointerleave', handleEnd, { passive: false });
+
+    // Force touch event suppression so Safari mobile doesn't convert strokes to scrolls
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (currentMode === 'mouse' || e.touches[0].touchType === 'stylus') {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (isDrawing) e.preventDefault();
+    }, { passive: false });
+
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 }
@@ -604,16 +620,20 @@ function executeScribbleErase(page) {
 }
 
 function startDrawing(e, page) {
-  if (e.button !== 0) return;
+  if (e.button !== undefined && e.button !== 0) return;
 
-  // Allow native vertical scrolling on touch input while in Pen mode
-  if (currentMode === 'pen' && e.pointerType !== 'pen') {
+  // In Pen mode: stylus draws, finger scrolls.
+  if (currentMode === 'pen' && e.pointerType === 'touch') {
     return;
   }
 
+  if (e.cancelable) e.preventDefault();
+
   isDrawing = true;
   activePage = page;
-  page.canvas.setPointerCapture(e.pointerId);
+  try {
+    page.canvas.setPointerCapture(e.pointerId);
+  } catch (err) {}
 
   page.preActionStrokes = cloneStrokes(page.strokes);
   page.strokeSnapshot = page.mainCtx.getImageData(0, 0, page.canvas.width, page.canvas.height);
@@ -700,6 +720,7 @@ function resetHoldTimer(page) {
 
 function draw(e, page) {
   if (!isDrawing || activePage !== page) return;
+  if (e.cancelable) e.preventDefault();
 
   const pos = getPos(e, page);
   const distFromLast = Math.hypot(pos.x - lastX, pos.y - lastY);
@@ -749,10 +770,16 @@ function draw(e, page) {
   page.render();
 }
 
-function stopDrawing(page) {
+function stopDrawing(page, e) {
   if (!isDrawing || activePage !== page) return;
+  if (e && e.cancelable) e.preventDefault();
+
   isDrawing = false;
   clearTimeout(holdTimer);
+
+  try {
+    if (e && e.pointerId) page.canvas.releasePointerCapture(e.pointerId);
+  } catch (err) {}
 
   let strokeAddedOrModified = false;
 
