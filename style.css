@@ -126,16 +126,15 @@ html, body {
 /* Canvas Workspace */
 .workspace {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   background: #e9ecef;
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  display: block;
   padding: 32px 16px;
   box-sizing: border-box;
   width: 100%;
-  min-width: 700px;
 }
 
 .zoom-wrapper {
@@ -194,6 +193,15 @@ canvas {
   left: 0;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Pen Mode: Finger scrolling enabled, stylus draws */
+body.mode-pen canvas {
+  touch-action: pan-x pan-y;
+}
+
+/* Touch/Mouse Mode: Prevent touch scrolling on canvas while drawing with finger */
+body.mode-mouse canvas {
   touch-action: none;
 }
 
