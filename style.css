@@ -123,12 +123,15 @@ html, body {
   outline-offset: 1px;
 }
 
-/* Canvas Workspace */
+/* Canvas Workspace with Bounded Height for Touch Scrolling */
 .workspace {
-  flex: 1;
+  flex: 1 1 0%;
+  height: 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pan-x;
   background: #e9ecef;
   position: relative;
   display: block;
@@ -195,12 +198,11 @@ canvas {
   height: 100% !important;
 }
 
-/* Pen Mode: Finger scrolling enabled, stylus draws */
+/* Touch behavior modes */
 body.mode-pen canvas {
-  touch-action: pan-x pan-y;
+  touch-action: pan-y pan-x;
 }
 
-/* Touch/Mouse Mode: Prevent touch scrolling on canvas while drawing with finger */
 body.mode-mouse canvas {
   touch-action: none;
 }
@@ -218,7 +220,7 @@ body.mode-mouse canvas {
   z-index: 10;
 }
 
-/* Modal Overlay */
+/* Welcome Modal */
 .welcome-screen {
   position: fixed;
   top: 0;
@@ -280,33 +282,15 @@ body.mode-mouse canvas {
   flex: 1;
 }
 
-.modal-footer {
-  text-align: center;
-  color: #888;
-  font-size: 12px;
-  margin-top: 12px;
-  border-top: 1px solid #eee;
-  padding-top: 12px;
-}
-
-/* Responsive Vertical & Narrow Screen Fixes */
 @media (max-width: 850px) {
-  .app-header {
+  .app-header, .toolbar {
     height: auto;
     padding: 8px 12px;
     gap: 8px;
   }
-
-  .toolbar {
-    height: auto;
-    padding: 8px 12px;
-    gap: 12px;
-  }
-
   .workspace {
     padding: 16px 8px;
   }
-
   .preset-palette {
     grid-template-columns: repeat(6, 1fr);
   }
