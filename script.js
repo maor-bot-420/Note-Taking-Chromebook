@@ -52,7 +52,6 @@ let isShapeSnapped = false;
 let snappedShape = null;
 let isScribble = false;
 let glowingScribbleActive = false;
-let lastTwoFingerTapTime = 0;
 
 let noteConfig = {
   title: 'Untitled Note',
@@ -966,7 +965,7 @@ function openFile(event) {
   openFileInput.value = '';
 }
 
-// Global Keyboard & Touch Listeners
+// Global Keyboard Listeners
 window.addEventListener('keydown', (e) => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
@@ -984,31 +983,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Robust 2-finger double tap for undo
-window.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2) {
-    if (isDrawing && activePage) {
-      isDrawing = false;
-      clearTimeout(holdTimer);
-      if (activePage.preActionStrokes) {
-        activePage.strokes = cloneStrokes(activePage.preActionStrokes);
-        activePage.redrawStrokes();
-        activePage.render();
-      }
-      activePage = null;
-    }
-
-    const now = Date.now();
-    if (now - lastTwoFingerTapTime < 450) {
-      e.preventDefault();
-      undo();
-      lastTwoFingerTapTime = 0;
-    } else {
-      lastTwoFingerTapTime = now;
-    }
-  }
-}, { passive: false });
-
+// Touch Scroll Fix (Allow normal multi-touch scrolling without interference)
 document.addEventListener('touchmove', (e) => {
   if (isDrawing) {
     e.preventDefault();
