@@ -13,6 +13,10 @@ const activeNoteTitle = document.getElementById('activeNoteTitle');
 const saveBtn = document.getElementById('saveBtn');
 const homeBtn = document.getElementById('homeBtn');
 
+// Undo / Redo UI Buttons (Optional)
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+
 // Mode & Zoom Controls
 const modeSelect = document.getElementById('modeSelect');
 const mouseControls = document.getElementById('mouseControls');
@@ -48,6 +52,7 @@ let isShapeSnapped = false;
 let snappedShape = null;
 let isScribble = false;
 let glowingScribbleActive = false;
+let lastTwoFingerTapTime = 0;
 
 let noteConfig = {
   title: 'Untitled Note',
@@ -106,6 +111,30 @@ const toolSizes = {
   eraser: 20
 };
 
+function cloneStrokes(strokes) {
+  return JSON.parse(JSON.stringify(strokes));
+}
+
+function getActiveOrLastPage() {
+  return activePage || pages[pages.length - 1] || null;
+}
+
+function undo(page = getActiveOrLastPage()) {
+  if (!page || page.undoStack.length === 0) return;
+  page.redoStack.push(cloneStrokes(page.strokes));
+  page.strokes = page.undoStack.pop();
+  page.redrawStrokes();
+  page.render();
+}
+
+function redo(page = getActiveOrLastPage()) {
+  if (!page || page.redoStack.length === 0) return;
+  page.undoStack.push(cloneStrokes(page.strokes));
+  page.strokes = page.redoStack.pop();
+  page.redrawStrokes();
+  page.render();
+}
+
 function computeStrokeBBox(stroke) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   if (stroke.shape) {
@@ -138,6 +167,9 @@ class Page {
     this.hasBeenDrawnOn = false;
     this.strokeSnapshot = null;
     this.strokes = [];
+    this.undoStack = [];
+    this.redoStack = [];
+    this.preActionStrokes = null;
     this.backgroundImage = null;
 
     this.container = document.createElement('div');
@@ -576,6 +608,7 @@ function startDrawing(e, page) {
   activePage = page;
   page.canvas.setPointerCapture(e.pointerId);
 
+  page.preActionStrokes = cloneStrokes(page.strokes);
   page.strokeSnapshot = page.mainCtx.getImageData(0, 0, page.canvas.width, page.canvas.height);
 
   const pos = getPos(e, page);
@@ -716,14 +749,15 @@ function stopDrawing(page) {
   isDrawing = false;
   clearTimeout(holdTimer);
 
+  let strokeAddedOrModified = false;
+
   if (currentTool === 'strokeEraser') {
+    if (JSON.stringify(page.strokes) !== JSON.stringify(page.preActionStrokes)) {
+      strokeAddedOrModified = true;
+    }
     page.strokeSnapshot = null;
     page.render();
-    activePage = null;
-    return;
-  }
-
-  if (isShapeSnapped && snappedShape && currentTool !== 'eraser') {
+  } else if (isShapeSnapped && snappedShape && currentTool !== 'eraser') {
     const newStroke = {
       tool: 'shape',
       shape: snappedShape,
@@ -734,6 +768,7 @@ function stopDrawing(page) {
     newStroke.bbox = computeStrokeBBox(newStroke);
     page.strokes.push(newStroke);
     page.redrawStrokes();
+    strokeAddedOrModified = true;
   } else if ((currentTool === 'pen' || currentTool === 'marker') && !isScribble) {
     if (currentStroke.length > 0) {
       const newStroke = {
@@ -745,6 +780,7 @@ function stopDrawing(page) {
       newStroke.bbox = computeStrokeBBox(newStroke);
       page.strokes.push(newStroke);
       page.redrawStrokes();
+      strokeAddedOrModified = true;
     }
   } else if (currentTool === 'eraser') {
     if (currentStroke.length > 0) {
@@ -756,7 +792,13 @@ function stopDrawing(page) {
       newStroke.bbox = computeStrokeBBox(newStroke);
       page.strokes.push(newStroke);
       page.redrawStrokes();
+      strokeAddedOrModified = true;
     }
+  }
+
+  if (strokeAddedOrModified && page.preActionStrokes) {
+    page.undoStack.push(page.preActionStrokes);
+    page.redoStack = [];
   }
 
   if (glowingScribbleActive) {
@@ -765,6 +807,7 @@ function stopDrawing(page) {
   }
 
   page.strokeSnapshot = null;
+  page.preActionStrokes = null;
   isShapeSnapped = false;
   snappedShape = null;
   isScribble = false;
@@ -909,6 +952,37 @@ function openFile(event) {
   openFileInput.value = '';
 }
 
+// Global Keyboard & Touch Listeners
+window.addEventListener('keydown', (e) => {
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+  const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+  if (isCmdOrCtrl && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      redo();
+    } else {
+      undo();
+    }
+  } else if (isCmdOrCtrl && e.key.toLowerCase() === 'y') {
+    e.preventDefault();
+    redo();
+  }
+});
+
+window.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2) {
+    const now = Date.now();
+    if (now - lastTwoFingerTapTime < 350) {
+      e.preventDefault();
+      undo();
+      lastTwoFingerTapTime = 0;
+    } else {
+      lastTwoFingerTapTime = now;
+    }
+  }
+}, { passive: false });
+
 document.addEventListener('touchmove', (e) => {
   if (isDrawing) {
     e.preventDefault();
@@ -916,6 +990,9 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 // Event Listeners
+if (undoBtn) undoBtn.addEventListener('click', () => undo());
+if (redoBtn) redoBtn.addEventListener('click', () => redo());
+
 modeSelect.addEventListener('change', updateModeUI);
 
 zoomInBtn.addEventListener('click', () => applyZoom(zoomLevel + 0.15));
