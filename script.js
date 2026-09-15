@@ -106,6 +106,32 @@ const toolSizes = {
   eraser: 20
 };
 
+function computeStrokeBBox(stroke) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  if (stroke.shape) {
+    const sh = stroke.shape;
+    if (sh.type === 'line') {
+      minX = Math.min(sh.x1, sh.x2); maxX = Math.max(sh.x1, sh.x2);
+      minY = Math.min(sh.y1, sh.y2); maxY = Math.max(sh.y1, sh.y2);
+    } else if (sh.type === 'rect') {
+      minX = sh.x; maxX = sh.x + sh.w;
+      minY = sh.y; maxY = sh.y + sh.h;
+    } else if (sh.type === 'circle') {
+      minX = sh.cx - sh.rx; maxX = sh.cx + sh.rx;
+      minY = sh.cy - sh.ry; maxY = sh.cy + sh.ry;
+    }
+  } else if (stroke.points) {
+    for (let i = 0; i < stroke.points.length; i++) {
+      const pt = stroke.points[i];
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+  }
+  return { minX, maxX, minY, maxY };
+}
+
 class Page {
   constructor(index) {
     this.index = index;
@@ -201,6 +227,7 @@ class Page {
         this.mainCtx.stroke();
       } else if (s.tool === 'shape' && s.shape) {
         this.mainCtx.globalCompositeOperation = 'source-over';
+        this.mainCtx.globalAlpha = s.isMarker ? 0.25 : 1.0;
         this.mainCtx.strokeStyle = s.color;
         this.mainCtx.lineWidth = s.width;
         this.mainCtx.lineCap = 'round';
@@ -247,6 +274,9 @@ class Page {
 
     if (isDrawing && activePage === this && isShapeSnapped && snappedShape) {
       this.ctx.save();
+      if (currentTool === 'marker') {
+        this.ctx.globalAlpha = 0.25;
+      }
       this.ctx.strokeStyle = colorPicker.value;
       this.ctx.lineWidth = toolSizes[currentTool];
       this.ctx.lineCap = 'round';
@@ -370,7 +400,19 @@ function distToSegmentSq(p, v, w) {
 }
 
 function checkStrokeHit(point, stroke) {
+  if (stroke.tool === 'eraser') return false;
+
   const threshold = (stroke.width / 2) + 12;
+
+  if (stroke.bbox) {
+    if (point.x < stroke.bbox.minX - threshold ||
+        point.x > stroke.bbox.maxX + threshold ||
+        point.y < stroke.bbox.minY - threshold ||
+        point.y > stroke.bbox.maxY + threshold) {
+      return false;
+    }
+  }
+
   const threshSq = threshold * threshold;
 
   if (stroke.tool === 'shape' && stroke.shape) {
@@ -405,28 +447,41 @@ function checkStrokeHit(point, stroke) {
 function analyzeShape(points) {
   if (points.length < 6) return null;
 
-  const start = points[0];
-  const end = points[points.length - 1];
+  const cleanPoints = [...points];
+  while (cleanPoints.length > 2) {
+    const pLast = cleanPoints[cleanPoints.length - 1];
+    const pPrev = cleanPoints[cleanPoints.length - 2];
+    if (Math.hypot(pLast.x - pPrev.x, pLast.y - pPrev.y) < 4) {
+      cleanPoints.pop();
+    } else {
+      break;
+    }
+  }
+
+  if (cleanPoints.length < 4) return null;
+
+  const start = cleanPoints[0];
+  const end = cleanPoints[cleanPoints.length - 1];
   const endDist = Math.hypot(end.x - start.x, end.y - start.y);
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   let pathLength = 0;
 
-  for (let i = 0; i < points.length; i++) {
-    minX = Math.min(minX, points[i].x);
-    maxX = Math.max(maxX, points[i].x);
-    minY = Math.min(minY, points[i].y);
-    maxY = Math.max(maxY, points[i].y);
+  for (let i = 0; i < cleanPoints.length; i++) {
+    minX = Math.min(minX, cleanPoints[i].x);
+    maxX = Math.max(maxX, cleanPoints[i].x);
+    minY = Math.min(minY, cleanPoints[i].y);
+    maxY = Math.max(maxY, cleanPoints[i].y);
 
     if (i > 0) {
-      pathLength += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+      pathLength += Math.hypot(cleanPoints[i].x - cleanPoints[i - 1].x, cleanPoints[i].y - cleanPoints[i - 1].y);
     }
   }
 
   const width = maxX - minX;
   const height = maxY - minY;
   const maxDim = Math.max(width, height);
-  const isClosed = endDist < maxDim * 0.45 || (points.length > 18 && endDist < 35);
+  const isClosed = endDist < maxDim * 0.45 || (cleanPoints.length > 18 && endDist < 35);
 
   if (isClosed && maxDim > 20) {
     const isSquareish = Math.min(width, height) / maxDim > 0.65;
@@ -493,7 +548,10 @@ function executeScribbleErase(page) {
   let erasedAny = false;
   currentStroke.forEach(pt => {
     const initialCount = page.strokes.length;
-    page.strokes = page.strokes.filter(s => !checkStrokeHit(pt, s));
+    page.strokes = page.strokes.filter(s => {
+      if (s.tool === 'eraser') return true;
+      return !checkStrokeHit(pt, s);
+    });
     if (page.strokes.length < initialCount) erasedAny = true;
   });
 
@@ -541,7 +599,10 @@ function startDrawing(e, page) {
 
 function eraseStrokeAtPos(page, pos) {
   const initialCount = page.strokes.length;
-  page.strokes = page.strokes.filter(s => !checkStrokeHit(pos, s));
+  page.strokes = page.strokes.filter(s => {
+    if (s.tool === 'eraser') return true;
+    return !checkStrokeHit(pos, s);
+  });
   if (page.strokes.length < initialCount) {
     page.redrawStrokes();
   }
@@ -629,27 +690,14 @@ function draw(e, page) {
     eraseStrokeAtPos(page, pos);
   } else if (!isShapeSnapped && currentTool !== 'strokeEraser') {
     if (currentTool === 'marker') {
-      const dx = pos.x - lastX;
-      const dy = pos.y - lastY;
-      const distance = Math.hypot(dx, dy);
-
-      if (distance > 0) {
-        const angle = Math.atan2(dy, dx) + Math.PI / 2;
-        const width = toolSizes['marker'];
-        const height = Math.max(4, width / 4);
-        const steps = Math.ceil(distance / 2);
-
-        for (let i = 0; i <= steps; i++) {
-          const x = lastX + (dx * i) / steps;
-          const y = lastY + (dy * i) / steps;
-
-          page.strokeCtx.save();
-          page.strokeCtx.translate(x, y);
-          page.strokeCtx.rotate(angle);
-          page.strokeCtx.fillRect(-width / 2, -height / 2, width, height);
-          page.strokeCtx.restore();
-        }
-      }
+      page.strokeCtx.strokeStyle = colorPicker.value;
+      page.strokeCtx.lineWidth = toolSizes['marker'];
+      page.strokeCtx.lineCap = 'square';
+      page.strokeCtx.lineJoin = 'miter';
+      page.strokeCtx.beginPath();
+      page.strokeCtx.moveTo(lastX, lastY);
+      page.strokeCtx.lineTo(pos.x, pos.y);
+      page.strokeCtx.stroke();
     } else {
       page.mainCtx.beginPath();
       page.mainCtx.moveTo(lastX, lastY);
@@ -676,30 +724,37 @@ function stopDrawing(page) {
   }
 
   if (isShapeSnapped && snappedShape && currentTool !== 'eraser') {
-    page.strokes.push({
+    const newStroke = {
       tool: 'shape',
       shape: snappedShape,
       color: colorPicker.value,
-      width: toolSizes[currentTool]
-    });
+      width: toolSizes[currentTool],
+      isMarker: currentTool === 'marker'
+    };
+    newStroke.bbox = computeStrokeBBox(newStroke);
+    page.strokes.push(newStroke);
     page.redrawStrokes();
   } else if ((currentTool === 'pen' || currentTool === 'marker') && !isScribble) {
     if (currentStroke.length > 0) {
-      page.strokes.push({
+      const newStroke = {
         tool: currentTool,
         color: colorPicker.value,
         width: toolSizes[currentTool],
         points: [...currentStroke]
-      });
+      };
+      newStroke.bbox = computeStrokeBBox(newStroke);
+      page.strokes.push(newStroke);
       page.redrawStrokes();
     }
   } else if (currentTool === 'eraser') {
     if (currentStroke.length > 0) {
-      page.strokes.push({
+      const newStroke = {
         tool: 'eraser',
         width: toolSizes['eraser'],
         points: [...currentStroke]
-      });
+      };
+      newStroke.bbox = computeStrokeBBox(newStroke);
+      page.strokes.push(newStroke);
       page.redrawStrokes();
     }
   }
@@ -821,6 +876,9 @@ function openFile(event) {
 
           if (data.pagesStrokes && data.pagesStrokes[idx]) {
             page.strokes = data.pagesStrokes[idx];
+            page.strokes.forEach(s => {
+              if (!s.bbox) s.bbox = computeStrokeBBox(s);
+            });
             page.redrawStrokes();
             page.render();
             loadedCount++;
