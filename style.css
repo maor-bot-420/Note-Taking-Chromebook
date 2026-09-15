@@ -125,11 +125,9 @@ body {
   flex: 1;
   overflow: auto;
   background: #e9ecef;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
   padding: 32px;
   position: relative;
+  box-sizing: border-box;
 }
 
 .zoom-wrapper {
@@ -138,6 +136,9 @@ body {
   flex-direction: column;
   gap: 24px;
   align-items: center;
+  width: max-content;
+  min-width: 100%;
+  margin: 0 auto;
 }
 
 .page-container {
@@ -261,4 +262,21 @@ canvas {
   margin-top: 12px;
   border-top: 1px solid #eee;
   padding-top: 12px;
+}
+
+/* Responsive portrait & mobile fix */
+@media (max-width: 850px) {
+  .workspace {
+    padding: 12px;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+  }
+
+  .preset-palette {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }
