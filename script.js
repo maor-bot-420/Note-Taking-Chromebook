@@ -987,7 +987,6 @@ window.addEventListener('keydown', (e) => {
 // Robust 2-finger double tap for undo
 window.addEventListener('touchstart', (e) => {
   if (e.touches.length === 2) {
-    // Abort drawing started by the first finger landing earlier
     if (isDrawing && activePage) {
       isDrawing = false;
       clearTimeout(holdTimer);
