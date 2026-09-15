@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Minimal Note App</title>
+  <!-- Suppresses 404 favicon console error -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css">    
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
 </head>
 <body>
 
@@ -103,7 +105,7 @@
       </label>
     </div>
 
-    <!-- Mouse Mode Navigation Controls (Shown in Mouse Mode) -->
+    <!-- Mouse Mode Navigation Controls -->
     <div class="mouse-controls hidden" id="mouseControls">
       <span class="control-label">Zoom:</span>
       <button id="zoomOutBtn" class="action-btn circle-btn" title="Zoom Out">-</button>
@@ -124,6 +126,5 @@
     <div id="zoomWrapper" class="zoom-wrapper"></div>
   </main>
 
-  <script src="script.js"></script>
 </body>
 </html>
