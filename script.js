@@ -397,8 +397,11 @@ function startDrawing(e, page) {
   if (e.button !== 0) return;
 
   if (currentMode === 'pen' && e.pointerType !== 'pen') {
-    return;
+    return; // Allows fingers to pass through for panning/zooming
   }
+
+  // Prevents Chrome from initiating page scrolling on stylus touch
+  e.preventDefault();
 
   isDrawing = true;
   activePage = page;
@@ -475,6 +478,9 @@ function resetHoldTimer(page) {
 
 function draw(e, page) {
   if (!isDrawing || activePage !== page) return;
+
+  // Keep preventing default browser scroll during active drawing
+  e.preventDefault();
 
   const pos = getPos(e, page);
   const distFromLast = Math.hypot(pos.x - lastX, pos.y - lastY);
