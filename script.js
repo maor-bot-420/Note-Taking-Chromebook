@@ -24,12 +24,13 @@ const zoomValText = document.getElementById('zoomVal');
 // Toolbar Controls
 const penBtn = document.getElementById('penBtn');
 const markerBtn = document.getElementById('markerBtn');
+const strokeEraserBtn = document.getElementById('strokeEraserBtn');
 const eraserBtn = document.getElementById('eraserBtn');
 const colorPicker = document.getElementById('colorPicker');
 const presetPalette = document.getElementById('presetPalette');
 const widthSlider = document.getElementById('widthSlider');
 const bgSelectToolbar = document.getElementById('bgSelectToolbar');
-const toolBtns = [penBtn, markerBtn, eraserBtn];
+const toolBtns = [penBtn, markerBtn, strokeEraserBtn, eraserBtn];
 
 let isDrawing = false;
 let activePage = null;
@@ -94,12 +95,14 @@ document.body.removeChild(cmHelper);
 const toolConfig = {
   pen: { min: 1, max: cmInPixels },
   marker: { min: 16, max: cmInPixels }, 
+  strokeEraser: { min: 5, max: cmInPixels },
   eraser: { min: 5, max: cmInPixels }
 };
 
 const toolSizes = {
   pen: 2.5,
   marker: 16,
+  strokeEraser: 20,
   eraser: 20
 };
 
@@ -108,6 +111,8 @@ class Page {
     this.index = index;
     this.hasBeenDrawnOn = false;
     this.strokeSnapshot = null;
+    this.strokes = [];
+    this.backgroundImage = null;
 
     this.container = document.createElement('div');
     this.updateClass();
@@ -138,15 +143,6 @@ class Page {
 
     if (width === 0 || height === 0) return;
 
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = this.canvas.width || width;
-    tempCanvas.height = this.canvas.height || height;
-    const tempCtx = tempCanvas.getContext('2d');
-
-    if (this.canvas.width > 0 && this.canvas.height > 0) {
-      tempCtx.drawImage(this.mainCanvas, 0, 0);
-    }
-
     this.canvas.width = width;
     this.canvas.height = height;
     this.mainCanvas.width = width;
@@ -154,11 +150,77 @@ class Page {
     this.strokeCanvas.width = width;
     this.strokeCanvas.height = height;
 
-    if (tempCanvas.width > 0 && tempCanvas.height > 0) {
-      this.mainCtx.drawImage(tempCanvas, 0, 0);
+    this.redrawStrokes();
+    this.render();
+  }
+
+  redrawStrokes() {
+    this.mainCtx.clearRect(0, 0, this.mainCanvas.width, this.mainCanvas.height);
+
+    if (this.backgroundImage) {
+      this.mainCtx.drawImage(this.backgroundImage, 0, 0);
     }
 
-    this.render();
+    this.strokes.forEach(s => {
+      this.mainCtx.save();
+      if (s.tool === 'eraser') {
+        this.mainCtx.globalCompositeOperation = 'destination-out';
+        this.mainCtx.lineWidth = s.width;
+        this.mainCtx.lineCap = 'round';
+        this.mainCtx.lineJoin = 'round';
+        this.mainCtx.beginPath();
+        s.points.forEach((pt, i) => {
+          if (i === 0) this.mainCtx.moveTo(pt.x, pt.y);
+          else this.mainCtx.lineTo(pt.x, pt.y);
+        });
+        this.mainCtx.stroke();
+      } else if (s.tool === 'pen') {
+        this.mainCtx.globalCompositeOperation = 'source-over';
+        this.mainCtx.strokeStyle = s.color;
+        this.mainCtx.lineWidth = s.width;
+        this.mainCtx.lineCap = 'round';
+        this.mainCtx.lineJoin = 'round';
+        this.mainCtx.beginPath();
+        s.points.forEach((pt, i) => {
+          if (i === 0) this.mainCtx.moveTo(pt.x, pt.y);
+          else this.mainCtx.lineTo(pt.x, pt.y);
+        });
+        this.mainCtx.stroke();
+      } else if (s.tool === 'marker') {
+        this.mainCtx.globalCompositeOperation = 'source-over';
+        this.mainCtx.globalAlpha = 0.25;
+        this.mainCtx.strokeStyle = s.color;
+        this.mainCtx.lineWidth = s.width;
+        this.mainCtx.lineCap = 'square';
+        this.mainCtx.lineJoin = 'miter';
+        this.mainCtx.beginPath();
+        s.points.forEach((pt, i) => {
+          if (i === 0) this.mainCtx.moveTo(pt.x, pt.y);
+          else this.mainCtx.lineTo(pt.x, pt.y);
+        });
+        this.mainCtx.stroke();
+      } else if (s.tool === 'shape' && s.shape) {
+        this.mainCtx.globalCompositeOperation = 'source-over';
+        this.mainCtx.strokeStyle = s.color;
+        this.mainCtx.lineWidth = s.width;
+        this.mainCtx.lineCap = 'round';
+        this.mainCtx.lineJoin = 'round';
+        const sh = s.shape;
+        if (sh.type === 'line') {
+          this.mainCtx.beginPath();
+          this.mainCtx.moveTo(sh.x1, sh.y1);
+          this.mainCtx.lineTo(sh.x2, sh.y2);
+          this.mainCtx.stroke();
+        } else if (sh.type === 'rect') {
+          this.mainCtx.strokeRect(sh.x, sh.y, sh.w, sh.h);
+        } else if (sh.type === 'circle') {
+          this.mainCtx.beginPath();
+          this.mainCtx.ellipse(sh.cx, sh.cy, sh.rx, sh.ry, 0, 0, 2 * Math.PI);
+          this.mainCtx.stroke();
+        }
+      }
+      this.mainCtx.restore();
+    });
   }
 
   render() {
@@ -172,14 +234,13 @@ class Page {
       this.ctx.restore();
     }
 
-    // Dotted Circle Cursor Preview for Eraser Tool
-    if (isDrawing && activePage === this && currentTool === 'eraser') {
+    if (isDrawing && activePage === this && (currentTool === 'eraser' || currentTool === 'strokeEraser')) {
       this.ctx.save();
-      this.ctx.strokeStyle = '#222222';
+      this.ctx.strokeStyle = currentTool === 'strokeEraser' ? '#ff3333' : '#222222';
       this.ctx.lineWidth = 1.5;
       this.ctx.setLineDash([4, 4]);
       this.ctx.beginPath();
-      this.ctx.arc(lastX, lastY, toolSizes['eraser'] / 2, 0, 2 * Math.PI);
+      this.ctx.arc(lastX, lastY, toolSizes[currentTool] / 2, 0, 2 * Math.PI);
       this.ctx.stroke();
       this.ctx.restore();
     }
@@ -266,7 +327,7 @@ function setupToolStyle() {
       page.mainCtx.lineWidth = selectedWidth;
     } else if (currentTool === 'marker') {
       page.strokeCtx.fillStyle = selectedColor;
-    } else if (currentTool === 'eraser') {
+    } else if (currentTool === 'eraser' || currentTool === 'strokeEraser') {
       page.mainCtx.globalCompositeOperation = 'destination-out';
       page.mainCtx.lineWidth = selectedWidth;
     }
@@ -298,6 +359,47 @@ function getPos(e, page) {
     x: (e.clientX - rect.left) * (page.canvas.width / rect.width),
     y: (e.clientY - rect.top) * (page.canvas.height / rect.height)
   };
+}
+
+function distToSegmentSq(p, v, w) {
+  const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
+  if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2;
+  let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return (p.x - (v.x + t * (w.x - v.x))) ** 2 + (p.y - (v.y + t * (w.y - v.y))) ** 2;
+}
+
+function checkStrokeHit(point, stroke) {
+  const threshold = (stroke.width / 2) + 12;
+  const threshSq = threshold * threshold;
+
+  if (stroke.tool === 'shape' && stroke.shape) {
+    const sh = stroke.shape;
+    if (sh.type === 'line') {
+      return distToSegmentSq(point, { x: sh.x1, y: sh.y1 }, { x: sh.x2, y: sh.y2 }) <= threshSq;
+    } else if (sh.type === 'rect') {
+      const p1 = { x: sh.x, y: sh.y };
+      const p2 = { x: sh.x + sh.w, y: sh.y };
+      const p3 = { x: sh.x + sh.w, y: sh.y + sh.h };
+      const p4 = { x: sh.x, y: sh.y + sh.h };
+      return distToSegmentSq(point, p1, p2) <= threshSq ||
+             distToSegmentSq(point, p2, p3) <= threshSq ||
+             distToSegmentSq(point, p3, p4) <= threshSq ||
+             distToSegmentSq(point, p4, p1) <= threshSq;
+    } else if (sh.type === 'circle') {
+      const dist = Math.hypot(point.x - sh.cx, point.y - sh.cy);
+      return Math.abs(dist - Math.max(sh.rx, sh.ry)) <= threshold;
+    }
+  }
+
+  if (stroke.points) {
+    for (let i = 0; i < stroke.points.length - 1; i++) {
+      if (distToSegmentSq(point, stroke.points[i], stroke.points[i + 1]) <= threshSq) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function analyzeShape(points) {
@@ -370,23 +472,46 @@ function checkScribbleGesture(points) {
   return directionFlips >= 4 && boxSize < 220;
 }
 
+function hasContentUnderScribble(page, points) {
+  if (!page.strokeSnapshot) return false;
+  const data = page.strokeSnapshot.data;
+  const w = page.canvas.width;
+  const h = page.canvas.height;
+  let hits = 0;
+
+  for (let i = 0; i < points.length; i++) {
+    const px = Math.round(points[i].x);
+    const py = Math.round(points[i].y);
+    if (px >= 0 && px < w && py >= 0 && py < h) {
+      const alpha = data[(py * w + px) * 4 + 3];
+      if (alpha > 30) {
+        hits++;
+        if (hits >= 3) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function executeScribbleErase(page) {
   if (currentStroke.length < 2) return;
 
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  currentStroke.forEach(pt => {
-    minX = Math.min(minX, pt.x);
-    maxX = Math.max(maxX, pt.x);
-    minY = Math.min(minY, pt.y);
-    maxY = Math.max(maxY, pt.y);
-  });
+  if (page.strokeSnapshot) {
+    page.mainCtx.putImageData(page.strokeSnapshot, 0, 0);
+  }
 
-  const pad = 15;
   page.mainCtx.save();
   page.mainCtx.globalCompositeOperation = 'destination-out';
+  page.mainCtx.lineWidth = toolSizes['pen'] * 6;
+  page.mainCtx.lineCap = 'round';
+  page.mainCtx.lineJoin = 'round';
+
   page.mainCtx.beginPath();
-  page.mainCtx.arc((minX + maxX) / 2, (minY + maxY) / 2, Math.max(maxX - minX, maxY - minY) / 2 + pad, 0, 2 * Math.PI);
-  page.mainCtx.fill();
+  currentStroke.forEach((pt, i) => {
+    if (i === 0) page.mainCtx.moveTo(pt.x, pt.y);
+    else page.mainCtx.lineTo(pt.x, pt.y);
+  });
+  page.mainCtx.stroke();
   page.mainCtx.restore();
 
   setTool('eraser', eraserBtn);
@@ -417,12 +542,22 @@ function startDrawing(e, page) {
   snappedShape = null;
   isScribble = false;
 
-  if (currentTool === 'marker') {
+  if (currentTool === 'strokeEraser') {
+    eraseStrokeAtPos(page, pos);
+  } else if (currentTool === 'marker') {
     page.strokeCtx.clearRect(0, 0, page.strokeCanvas.width, page.strokeCanvas.height);
   }
 
   resetHoldTimer(page);
   page.render();
+}
+
+function eraseStrokeAtPos(page, pos) {
+  const initialCount = page.strokes.length;
+  page.strokes = page.strokes.filter(s => !checkStrokeHit(pos, s));
+  if (page.strokes.length < initialCount) {
+    page.redrawStrokes();
+  }
 }
 
 function restoreFreehandStroke(page) {
@@ -438,7 +573,7 @@ function restoreFreehandStroke(page) {
   page.mainCtx.lineCap = 'round';
   page.mainCtx.lineJoin = 'round';
 
-  if (currentTool === 'eraser') {
+  if (currentTool === 'eraser' || currentTool === 'strokeEraser') {
     page.mainCtx.globalCompositeOperation = 'destination-out';
   } else {
     page.mainCtx.globalCompositeOperation = 'source-over';
@@ -456,7 +591,7 @@ function restoreFreehandStroke(page) {
 function resetHoldTimer(page) {
   clearTimeout(holdTimer);
 
-  if (currentTool === 'eraser') return;
+  if (currentTool === 'eraser' || currentTool === 'strokeEraser') return;
 
   holdTimer = setTimeout(() => {
     if (isDrawing && currentStroke.length > 5 && !isScribble) {
@@ -494,19 +629,27 @@ function draw(e, page) {
     resetHoldTimer(page);
   }
 
-  if (currentTool === 'pen' && !isScribble && checkScribbleGesture(currentStroke)) {
-    isScribble = true;
-    executeScribbleErase(page);
+  if (currentTool === 'strokeEraser') {
+    eraseStrokeAtPos(page, pos);
+  } else if (currentTool === 'pen' && !isScribble && checkScribbleGesture(currentStroke)) {
+    if (hasContentUnderScribble(page, currentStroke)) {
+      isScribble = true;
+      executeScribbleErase(page);
+    }
   }
 
   if (isScribble) {
     page.mainCtx.save();
     page.mainCtx.globalCompositeOperation = 'destination-out';
+    page.mainCtx.lineWidth = toolSizes['pen'] * 6;
+    page.mainCtx.lineCap = 'round';
+    page.mainCtx.lineJoin = 'round';
     page.mainCtx.beginPath();
-    page.mainCtx.arc(pos.x, pos.y, toolSizes['eraser'], 0, 2 * Math.PI);
-    page.mainCtx.fill();
+    page.mainCtx.moveTo(lastX, lastY);
+    page.mainCtx.lineTo(pos.x, pos.y);
+    page.mainCtx.stroke();
     page.mainCtx.restore();
-  } else if (!isShapeSnapped) {
+  } else if (!isShapeSnapped && currentTool !== 'strokeEraser') {
     if (currentTool === 'marker') {
       const dx = pos.x - lastX;
       const dy = pos.y - lastY;
@@ -547,37 +690,40 @@ function stopDrawing(page) {
   isDrawing = false;
   clearTimeout(holdTimer);
 
-  if (isShapeSnapped && snappedShape && currentTool !== 'eraser') {
-    page.mainCtx.save();
-    page.mainCtx.globalCompositeOperation = 'source-over';
-    page.mainCtx.strokeStyle = colorPicker.value;
-    page.mainCtx.lineWidth = toolSizes[currentTool];
-    page.mainCtx.lineCap = 'round';
-    page.mainCtx.lineJoin = 'round';
-
-    if (snappedShape.type === 'line') {
-      page.mainCtx.beginPath();
-      page.mainCtx.moveTo(snappedShape.x1, snappedShape.y1);
-      page.mainCtx.lineTo(snappedShape.x2, snappedShape.y2);
-      page.mainCtx.stroke();
-    } else if (snappedShape.type === 'rect') {
-      page.mainCtx.strokeRect(snappedShape.x, snappedShape.y, snappedShape.w, snappedShape.h);
-    } else if (snappedShape.type === 'circle') {
-      page.mainCtx.beginPath();
-      page.mainCtx.ellipse(snappedShape.cx, snappedShape.cy, snappedShape.rx, snappedShape.ry, 0, 0, 2 * Math.PI);
-      page.mainCtx.stroke();
-    }
-    page.mainCtx.restore();
+  if (currentTool === 'strokeEraser') {
+    page.strokeSnapshot = null;
+    page.render();
+    activePage = null;
+    return;
   }
 
-  if (currentTool === 'marker') {
-    page.mainCtx.save();
-    page.mainCtx.globalCompositeOperation = 'source-over';
-    page.mainCtx.globalAlpha = 0.25;
-    page.mainCtx.drawImage(page.strokeCanvas, 0, 0);
-    page.mainCtx.restore();
-
-    page.strokeCtx.clearRect(0, 0, page.strokeCanvas.width, page.strokeCanvas.height);
+  if (isShapeSnapped && snappedShape && currentTool !== 'eraser') {
+    page.strokes.push({
+      tool: 'shape',
+      shape: snappedShape,
+      color: colorPicker.value,
+      width: toolSizes[currentTool]
+    });
+    page.redrawStrokes();
+  } else if (currentTool === 'pen' || currentTool === 'marker') {
+    if (currentStroke.length > 0) {
+      page.strokes.push({
+        tool: currentTool,
+        color: colorPicker.value,
+        width: toolSizes[currentTool],
+        points: [...currentStroke]
+      });
+      page.redrawStrokes();
+    }
+  } else if (currentTool === 'eraser') {
+    if (currentStroke.length > 0) {
+      page.strokes.push({
+        tool: 'eraser',
+        width: toolSizes['eraser'],
+        points: [...currentStroke]
+      });
+      page.redrawStrokes();
+    }
   }
 
   if (glowingScribbleActive) {
@@ -631,13 +777,13 @@ async function saveFile() {
     title: noteConfig.title,
     size: noteConfig.size,
     bg: noteConfig.bg,
-    pagesData: pages.map(page => page.mainCanvas.toDataURL('image/png'))
+    pagesData: pages.map(page => page.mainCanvas.toDataURL('image/png')),
+    pagesStrokes: pages.map(page => page.strokes)
   };
 
   const jsonString = JSON.stringify(fileData, null, 2);
   const defaultFileName = `${noteConfig.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.note`;
 
-  // Native File Picker for ChromeOS / Desktop
   if ('showSaveFilePicker' in window) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -657,7 +803,6 @@ async function saveFile() {
     }
   }
 
-  // Fallback for browsers without showSaveFilePicker support
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -692,20 +837,27 @@ function openFile(event) {
       if (totalPages === 0) {
         createNewPage();
       } else {
-        data.pagesData.forEach((dataUrl) => {
+        data.pagesData.forEach((dataUrl, idx) => {
           const page = createNewPage();
           page.hasBeenDrawnOn = true;
-          const img = new Image();
-          img.onload = () => {
-            page.mainCtx.drawImage(img, 0, 0);
+
+          if (data.pagesStrokes && data.pagesStrokes[idx]) {
+            page.strokes = data.pagesStrokes[idx];
+            page.redrawStrokes();
             page.render();
             loadedCount++;
-            
-            if (loadedCount === totalPages) {
-              createNewPage();
-            }
-          };
-          img.src = dataUrl;
+            if (loadedCount === totalPages) createNewPage();
+          } else {
+            const img = new Image();
+            img.onload = () => {
+              page.backgroundImage = img;
+              page.redrawStrokes();
+              page.render();
+              loadedCount++;
+              if (loadedCount === totalPages) createNewPage();
+            };
+            img.src = dataUrl;
+          }
         });
       }
 
@@ -719,7 +871,6 @@ function openFile(event) {
   openFileInput.value = '';
 }
 
-// Global touchmove override to prevent window panning during active drawing
 document.addEventListener('touchmove', (e) => {
   if (isDrawing) {
     e.preventDefault();
@@ -754,6 +905,7 @@ homeBtn.addEventListener('click', () => {
 
 penBtn.addEventListener('click', () => setTool('pen', penBtn));
 markerBtn.addEventListener('click', () => setTool('marker', markerBtn));
+strokeEraserBtn.addEventListener('click', () => setTool('strokeEraser', strokeEraserBtn));
 eraserBtn.addEventListener('click', () => setTool('eraser', eraserBtn));
 
 colorPicker.addEventListener('input', () => {
@@ -783,5 +935,4 @@ window.addEventListener('orientationchange', () => {
   setTimeout(handleResize, 200);
 });
 
-// Initialize UI mode
 updateModeUI();
