@@ -472,21 +472,11 @@ function checkScribbleGesture(points) {
   return directionFlips >= 4 && boxSize < 220;
 }
 
-function hasContentUnderScribble(page, points) {
-  if (!page.strokeSnapshot) return false;
-  const data = page.strokeSnapshot.data;
-  const w = page.canvas.width;
-  const h = page.canvas.height;
-  let hits = 0;
-
+function hasStrokesUnderScribble(page, points) {
   for (let i = 0; i < points.length; i++) {
-    const px = Math.round(points[i].x);
-    const py = Math.round(points[i].y);
-    if (px >= 0 && px < w && py >= 0 && py < h) {
-      const alpha = data[(py * w + px) * 4 + 3];
-      if (alpha > 30) {
-        hits++;
-        if (hits >= 3) return true;
+    for (let j = 0; j < page.strokes.length; j++) {
+      if (checkStrokeHit(points[i], page.strokes[j])) {
+        return true;
       }
     }
   }
@@ -500,21 +490,18 @@ function executeScribbleErase(page) {
     page.mainCtx.putImageData(page.strokeSnapshot, 0, 0);
   }
 
-  page.mainCtx.save();
-  page.mainCtx.globalCompositeOperation = 'destination-out';
-  page.mainCtx.lineWidth = toolSizes['pen'] * 6;
-  page.mainCtx.lineCap = 'round';
-  page.mainCtx.lineJoin = 'round';
-
-  page.mainCtx.beginPath();
-  currentStroke.forEach((pt, i) => {
-    if (i === 0) page.mainCtx.moveTo(pt.x, pt.y);
-    else page.mainCtx.lineTo(pt.x, pt.y);
+  let erasedAny = false;
+  currentStroke.forEach(pt => {
+    const initialCount = page.strokes.length;
+    page.strokes = page.strokes.filter(s => !checkStrokeHit(pt, s));
+    if (page.strokes.length < initialCount) erasedAny = true;
   });
-  page.mainCtx.stroke();
-  page.mainCtx.restore();
 
-  setTool('eraser', eraserBtn);
+  if (erasedAny) {
+    page.redrawStrokes();
+  }
+
+  setTool('strokeEraser', strokeEraserBtn);
   glowingScribbleActive = true;
 }
 
@@ -632,23 +619,14 @@ function draw(e, page) {
   if (currentTool === 'strokeEraser') {
     eraseStrokeAtPos(page, pos);
   } else if (currentTool === 'pen' && !isScribble && checkScribbleGesture(currentStroke)) {
-    if (hasContentUnderScribble(page, currentStroke)) {
+    if (hasStrokesUnderScribble(page, currentStroke)) {
       isScribble = true;
       executeScribbleErase(page);
     }
   }
 
   if (isScribble) {
-    page.mainCtx.save();
-    page.mainCtx.globalCompositeOperation = 'destination-out';
-    page.mainCtx.lineWidth = toolSizes['pen'] * 6;
-    page.mainCtx.lineCap = 'round';
-    page.mainCtx.lineJoin = 'round';
-    page.mainCtx.beginPath();
-    page.mainCtx.moveTo(lastX, lastY);
-    page.mainCtx.lineTo(pos.x, pos.y);
-    page.mainCtx.stroke();
-    page.mainCtx.restore();
+    eraseStrokeAtPos(page, pos);
   } else if (!isShapeSnapped && currentTool !== 'strokeEraser') {
     if (currentTool === 'marker') {
       const dx = pos.x - lastX;
@@ -705,7 +683,7 @@ function stopDrawing(page) {
       width: toolSizes[currentTool]
     });
     page.redrawStrokes();
-  } else if (currentTool === 'pen' || currentTool === 'marker') {
+  } else if ((currentTool === 'pen' || currentTool === 'marker') && !isScribble) {
     if (currentStroke.length > 0) {
       page.strokes.push({
         tool: currentTool,
