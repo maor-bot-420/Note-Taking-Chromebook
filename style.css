@@ -1,99 +1,297 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Canvas Note App</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body class="mode-pen">
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
-  <header class="app-header">
-    <div class="header-left">
-      <button id="homeBtn" class="btn">Home</button>
-      <span id="activeNoteTitle" class="note-title">Untitled Note</span>
-    </div>
-    <div class="header-center">
-      <button id="undoBtn" class="btn">Undo</button>
-      <button id="redoBtn" class="btn">Redo</button>
-      <select id="modeSelect" class="btn">
-        <option value="pen">Pen Mode (Stylus Draw / Touch Scroll)</option>
-        <option value="mouse">Touch/Mouse Mode (Touch Draw)</option>
-      </select>
-    </div>
-    <div class="header-right">
-      <div id="mouseControls" class="hidden">
-        <button id="zoomOutBtn" class="btn">-</button>
-        <span id="zoomVal">100%</span>
-        <button id="zoomInBtn" class="btn">+</button>
-        <button id="resetZoomBtn" class="btn">Reset</button>
-      </div>
-      <button id="saveBtn" class="btn primary">Save</button>
-    </div>
-  </header>
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #f0f2f5;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
 
-  <div class="toolbar">
-    <div class="tool-group">
-      <button id="penBtn" class="tool-btn active">Pen</button>
-      <button id="markerBtn" class="tool-btn">Marker</button>
-      <button id="strokeEraserBtn" class="tool-btn">Stroke Eraser</button>
-      <button id="eraserBtn" class="tool-btn">Eraser</button>
-    </div>
-    <div class="tool-group">
-      <input type="color" id="colorPicker" value="#222222">
-      <div id="presetPalette" class="preset-palette"></div>
-    </div>
-    <div class="tool-group">
-      <label for="widthSlider">Size:</label>
-      <input type="range" id="widthSlider" min="1" max="50" value="2.5">
-    </div>
-    <div class="tool-group">
-      <select id="bgSelectToolbar" class="btn">
-        <option value="grid-1cm">Grid (1cm)</option>
-        <option value="lined">Lined</option>
-        <option value="blank">Blank</option>
-      </select>
-    </div>
-  </div>
+/* Header Navigation */
+.app-header {
+  min-height: 50px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 10;
+  flex-wrap: wrap;
+}
 
-  <div id="workspace" class="workspace">
-    <div id="zoomWrapper" class="zoom-wrapper"></div>
-  </div>
+.header-left, .header-center, .header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-  <footer class="app-footer">
-    <span>Canvas Notes</span>
-  </footer>
+.note-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #222;
+}
 
-  <div id="welcomeScreen" class="welcome-screen">
-    <div class="modal-card">
-      <h2>Create Note</h2>
-      <div class="form-group">
-        <label for="noteTitleInput">Title</label>
-        <input type="text" id="noteTitleInput" value="My Note">
-      </div>
-      <div class="form-group">
-        <label for="initPageSizeSelect">Page Size</label>
-        <select id="initPageSizeSelect">
-          <option value="a4">A4</option>
-          <option value="letter">Letter</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="initBgSelect">Background</label>
-        <select id="initBgSelect">
-          <option value="grid-1cm">Grid (1cm)</option>
-          <option value="lined">Lined</option>
-          <option value="blank">Blank</option>
-        </select>
-      </div>
-      <div class="modal-actions">
-        <button id="createNoteBtn" class="btn primary">Create</button>
-        <button id="openNoteBtn" class="btn">Open</button>
-        <input type="file" id="openFileInput" accept=".note,.json" class="hidden">
-      </div>
-    </div>
-  </div>
+.btn {
+  padding: 6px 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
 
-  <script src="script.js"></script>
-</body>
-</html>
+.btn:hover {
+  background: #f5f5f5;
+}
+
+.btn.primary {
+  background: #0066ff;
+  color: #fff;
+  border-color: #0066ff;
+}
+
+.btn.primary:hover {
+  background: #0052cc;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Drawing Toolbar */
+.toolbar {
+  min-height: 56px;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 24px;
+  z-index: 9;
+  flex-wrap: wrap;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.tool-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tool-btn.active {
+  background: #222;
+  color: #fff;
+  border-color: #222;
+}
+
+.preset-palette {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+
+.color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.color-swatch.selected {
+  outline: 2px solid #0066ff;
+  outline-offset: 1px;
+}
+
+/* Canvas Workspace with Bounded Height for Touch Scrolling */
+.workspace {
+  flex: 1 1 0%;
+  height: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pan-x;
+  background: #e9ecef;
+  position: relative;
+  display: block;
+  padding: 32px 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.zoom-wrapper {
+  transform-origin: top center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 816px;
+}
+
+.page-container {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  position: relative;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+.page-container.a4 {
+  width: 100%;
+  max-width: 794px;
+  aspect-ratio: 1 / 1.4142;
+  height: auto;
+}
+
+.page-container.letter {
+  width: 100%;
+  max-width: 816px;
+  aspect-ratio: 1 / 1.2941;
+  height: auto;
+}
+
+/* Page Background Patterns */
+.page-container.grid-1cm {
+  background-image: linear-gradient(to right, #e5e5e5 1px, transparent 1px),
+                    linear-gradient(to bottom, #e5e5e5 1px, transparent 1px);
+  background-size: 37.8px 37.8px;
+}
+
+.page-container.lined {
+  background-image: linear-gradient(to bottom, #e5e5e5 1px, transparent 1px);
+  background-size: 100% 32px;
+}
+
+.page-container.blank {
+  background-image: none;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Touch behavior modes */
+body.mode-pen canvas {
+  touch-action: pan-y pan-x;
+}
+
+body.mode-mouse canvas {
+  touch-action: none;
+}
+
+/* App Footer */
+.app-footer {
+  height: 28px;
+  background: #fff;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #777;
+  font-size: 12px;
+  z-index: 10;
+}
+
+/* Welcome Modal */
+.welcome-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-card h2 {
+  font-size: 22px;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.form-group input, .form-group select {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+@media (max-width: 850px) {
+  .app-header, .toolbar {
+    height: auto;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .workspace {
+    padding: 16px 8px;
+  }
+  .preset-palette {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
